@@ -1,13 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   getMonthlyTrend,
   getCategoryTrend,
   getWeeklySpending,
   getAverages,
 } from "@/services/analyticsService";
+import { events } from "@/lib/events";
 
 /**
  * Fetch all analytics data.
+ * Automatically refreshes when transactions or budgets change.
  * Returns { monthlyTrend, categoryTrend, weeklySpending, averages, loading, error }.
  */
 export function useAnalytics() {
@@ -20,32 +22,44 @@ export function useAnalytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        setLoading(true);
-        const [monthlyTrend, categoryTrend, weeklySpending, averages] =
-          await Promise.all([
-            getMonthlyTrend(),
-            getCategoryTrend(),
-            getWeeklySpending(),
-            getAverages(),
-          ]);
-        if (!cancelled) {
-          setData({ monthlyTrend, categoryTrend, weeklySpending, averages });
-        }
-      } catch (err) {
-        if (!cancelled) setError(err.message);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [monthlyTrend, categoryTrend, weeklySpending, averages] =
+        await Promise.all([
+          getMonthlyTrend(),
+          getCategoryTrend(),
+          getWeeklySpending(),
+          getAverages(),
+        ]);
+      setData({ monthlyTrend, categoryTrend, weeklySpending, averages });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    load();
-    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Re-fetch when transactions or budgets change
+  useEffect(() => {
+    const handleRefresh = () => load();
+    events.on("transaction-created", handleRefresh);
+    events.on("transaction-updated", handleRefresh);
+    events.on("transaction-deleted", handleRefresh);
+    events.on("budget-created", handleRefresh);
+    events.on("budget-deleted", handleRefresh);
+    return () => {
+      events.off("transaction-created", handleRefresh);
+      events.off("transaction-updated", handleRefresh);
+      events.off("transaction-deleted", handleRefresh);
+      events.off("budget-created", handleRefresh);
+      events.off("budget-deleted", handleRefresh);
+    };
+  }, [load]);
 
   return { ...data, loading, error };
 }
