@@ -63,18 +63,52 @@ export async function deleteBudget(id) {
 }
 
 /**
+ * Return all budgets that belong to a given category.
+ * Used by the income allocation UI to show which budgets can receive funds.
+ *
+ * TODO: replace with  apiFetch(`/budgets?category=${category}`) when wired to backend
+ *
+ * @param {string} category
+ * @returns {Promise<Array>}
+ */
+export async function getBudgetsByCategory(category) {
+  return mockBudgets.filter((b) => b.category === category);
+}
+
+/**
  * Adjust the spentAmount on a budget matching the given category.
- * Positive amount increases spent (expense), negative decreases (income refund, deletion, etc).
+ * Positive amount increases spent (expense), negative decreases (income).
  *
  * TODO: remove this function when wired to backend – the API will
  *       calculate spent amounts from actual transactions automatically.
  *
  * @param {string} category
- * @param {number} amount - absolute value to add to spentAmount
+ * @param {number} amount - value to add to spentAmount (positive = more spent, negative = less spent)
  */
 export function adjustBudgetSpent(category, amount) {
   const budget = mockBudgets.find((b) => b.category === category);
   if (budget) {
     budget.spentAmount = Math.max(0, budget.spentAmount + amount);
+  }
+}
+
+/**
+ * Apply income to specific budgets by reducing their spentAmount.
+ * Called after creating an income transaction with budget allocations.
+ *
+ * @param {Array<{ budgetId: number, amount: number }>} allocations
+ *   Each entry has the budgetId and the dollar amount to apply.
+ * @returns {Promise<void>}
+ */
+export async function applyIncomeToBudgets(allocations) {
+  // TODO: replace with  apiFetch("/budgets/apply-income", {
+  //   method: "POST",
+  //   body: JSON.stringify({ allocations: allocations.map(a => ({ budget_id: a.budgetId, amount: a.amount })) }),
+  // })
+  for (const alloc of allocations) {
+    const budget = mockBudgets.find((b) => b.id === alloc.budgetId);
+    if (budget) {
+      budget.spentAmount = Math.max(0, budget.spentAmount - alloc.amount);
+    }
   }
 }

@@ -36,6 +36,9 @@ export async function getRecentTransactions(limit = 5) {
 
 /**
  * Create a new transaction.
+ * Budget adjustments for income allocations are handled separately
+ * via budgetService.applyIncomeToBudgets() — called from the modal.
+ *
  * @param {object} data - { name, category, amount, date, type }
  * @returns {Promise<object>}
  */
@@ -67,14 +70,14 @@ export async function updateTransaction(id, data) {
   if (!txn) throw new Error("Transaction not found");
 
   // TODO: remove budget adjustment when wired to backend
-  // Reverse old spent amount
+  // Reverse old expense impact
   if (txn.type === "expense") {
     adjustBudgetSpent(txn.category, -Math.abs(txn.amount));
   }
 
   Object.assign(txn, data);
 
-  // Apply new spent amount
+  // Apply new expense impact
   if (txn.type === "expense") {
     adjustBudgetSpent(txn.category, Math.abs(txn.amount));
   }
@@ -93,7 +96,7 @@ export async function deleteTransaction(id) {
   if (index !== -1) {
     const txn = mockTransactions[index];
 
-    // TODO: remove when wired to backend – the API recalculates spent from transactions
+    // TODO: remove when wired to backend
     if (txn.type === "expense") {
       adjustBudgetSpent(txn.category, -Math.abs(txn.amount));
     }

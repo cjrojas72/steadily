@@ -94,7 +94,7 @@ export function Transactions() {
       ) : (
         <>
           {/* Transactions Table */}
-          <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="bg-card border border-border rounded-lg overflow-hidden shadow">
             {/* Desktop view */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full">

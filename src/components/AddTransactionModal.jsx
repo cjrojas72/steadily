@@ -1,17 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
 import { createTransaction } from "@/services/transactionService";
+import { getBudgetsByCategory, applyIncomeToBudgets } from "@/services/budgetService";
 import { events } from "@/lib/events";
 import { CATEGORY_COLORS } from "@/lib/constants";
+import { formatCurrency } from "@/utils/formatters";
 
 const CATEGORIES = Object.keys(CATEGORY_COLORS);
 
 /**
  * Modal form for adding a new transaction.
- * Fields match the backend schema: description, category (category_id),
- * amount, type, transaction_date.
+ * When type is "income", shows a checklist of budgets in the selected
+ * category so the user can allocate the income by percentage.
  */
 export function AddTransactionModal({ open, onClose }) {
   const [form, setForm] = useState({
@@ -24,6 +26,11 @@ export function AddTransactionModal({ open, onClose }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  // Budget allocation state for income
+  const [categoryBudgets, setCategoryBudgets] = useState([]);
+  const [allocations, setAllocations] = useState({});
+  // allocations shape: { [budgetId]: { checked: bool, percentage: string } }
+
   const reset = () => {
     setForm({
       description: "",
@@ -33,6 +40,7 @@ export function AddTransactionModal({ open, onClose }) {
       transaction_date: new Date().toISOString().split("T")[0],
     });
     setError("");
+    setAllocations({});
   };
 
   const handleClose = () => {
@@ -43,6 +51,59 @@ export function AddTransactionModal({ open, onClose }) {
   const handleChange = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
+
+  // Fetch budgets for the selected category when type is income
+  useEffect(() => {
+    if (form.type !== "income") {
+      setCategoryBudgets([]);
+      setAllocations({});
+      return;
+    }
+
+    let cancelled = false;
+    getBudgetsByCategory(form.category).then((budgets) => {
+      if (cancelled) return;
+      setCategoryBudgets(budgets);
+      // Reset allocations when category changes
+      setAllocations({});
+    });
+
+    return () => { cancelled = true; };
+  }, [form.type, form.category]);
+
+  const toggleBudget = (budgetId) => {
+    setAllocations((prev) => {
+      const existing = prev[budgetId];
+      if (existing?.checked) {
+        // Uncheck — remove
+        const next = { ...prev };
+        delete next[budgetId];
+        return next;
+      }
+      return { ...prev, [budgetId]: { checked: true, percentage: "" } };
+    });
+  };
+
+  const setPercentage = (budgetId, value) => {
+    setAllocations((prev) => ({
+      ...prev,
+      [budgetId]: { ...prev[budgetId], percentage: value },
+    }));
+  };
+
+  // Compute total allocated percentage
+  const checkedAllocations = useMemo(
+    () => Object.entries(allocations).filter(([, v]) => v.checked),
+    [allocations],
+  );
+  const totalPercentage = useMemo(
+    () => checkedAllocations.reduce((sum, [, v]) => sum + (parseFloat(v.percentage) || 0), 0),
+    [checkedAllocations],
+  );
+
+  const isIncome = form.type === "income";
+  const hasBudgets = categoryBudgets.length > 0;
+  const hasAllocations = checkedAllocations.length > 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,15 +123,41 @@ export function AddTransactionModal({ open, onClose }) {
       return;
     }
 
+    // Validate allocations for income with selected budgets
+    if (isIncome && hasAllocations) {
+      if (Math.abs(totalPercentage - 100) > 0.01) {
+        setError(`Allocation percentages must total 100% (currently ${totalPercentage.toFixed(1)}%)`);
+        return;
+      }
+      for (const [, v] of checkedAllocations) {
+        const pct = parseFloat(v.percentage);
+        if (isNaN(pct) || pct <= 0) {
+          setError("Each selected budget must have a percentage greater than 0");
+          return;
+        }
+      }
+    }
+
     setSubmitting(true);
     try {
+      // 1. Create the transaction
       await createTransaction({
         name: form.description.trim(),
         category: form.category,
-        amount: form.type === "expense" ? -amount : amount,
+        amount: isIncome ? amount : -amount,
         date: form.transaction_date,
         type: form.type,
       });
+
+      // 2. If income with allocations, update each budget directly
+      if (isIncome && hasAllocations) {
+        const budgetUpdates = checkedAllocations.map(([budgetId, v]) => ({
+          budgetId: Number(budgetId),
+          amount: (parseFloat(v.percentage) / 100) * amount,
+        }));
+        await applyIncomeToBudgets(budgetUpdates);
+      }
+
       events.emit("transaction-created");
       toast.success("Transaction added successfully");
       handleClose();
@@ -80,6 +167,8 @@ export function AddTransactionModal({ open, onClose }) {
       setSubmitting(false);
     }
   };
+
+  const parsedAmount = parseFloat(form.amount) || 0;
 
   return (
     <Modal open={open} onClose={handleClose} title="Add Transaction">
@@ -163,6 +252,82 @@ export function AddTransactionModal({ open, onClose }) {
             className="w-full px-4 py-2 bg-input-background border border-border rounded-lg"
           />
         </div>
+
+        {/* Income budget allocation */}
+        {isIncome && hasBudgets && (
+          <div className="border border-border rounded-lg p-4 space-y-3">
+            <div>
+              <label className="block font-medium mb-1">Allocate to Budgets</label>
+              <p className="text-xs text-muted-foreground">
+                Select which budgets should receive this income and set the percentage for each.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {categoryBudgets.map((budget) => {
+                const alloc = allocations[budget.id];
+                const isChecked = !!alloc?.checked;
+                const pct = parseFloat(alloc?.percentage) || 0;
+                const portion = parsedAmount > 0 ? (pct / 100) * parsedAmount : 0;
+
+                return (
+                  <div key={budget.id} className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleBudget(budget.id)}
+                      className="w-4 h-4 rounded border-border cursor-pointer accent-primary"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate">{budget.title || budget.category}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(budget.spentAmount)} / {formatCurrency(budget.budgetAmount)} spent
+                      </p>
+                    </div>
+                    {isChecked && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={alloc?.percentage ?? ""}
+                          onChange={(e) => setPercentage(budget.id, e.target.value)}
+                          placeholder="0"
+                          className="w-16 px-2 py-1 text-sm bg-input-background border border-border rounded-lg text-right"
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                        {portion > 0 && (
+                          <span className="text-xs text-green-600 ml-1">
+                            {formatCurrency(portion)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Allocation total */}
+            {hasAllocations && (
+              <div className={`flex justify-between text-sm pt-2 border-t border-border ${
+                Math.abs(totalPercentage - 100) < 0.01
+                  ? "text-green-600"
+                  : "text-amber-600"
+              }`}>
+                <span>Total allocation</span>
+                <span>{totalPercentage.toFixed(1)}% of {formatCurrency(parsedAmount)}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isIncome && !hasBudgets && (
+          <div className="border border-dashed border-border rounded-lg p-3 text-sm text-muted-foreground text-center">
+            No budgets found for {form.category}. Income will be recorded without budget allocation.
+          </div>
+        )}
 
         {/* Submit */}
         <button
