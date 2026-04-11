@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
 import { createBudget } from "@/services/budgetService";
@@ -15,6 +16,8 @@ const PERIODS = ["monthly", "weekly", "yearly"];
  */
 export function AddBudgetModal({ open, onClose }) {
   const [form, setForm] = useState({
+    title: "",
+    description: "",
     category: CATEGORIES[0],
     limit_amount: "",
     period: "monthly",
@@ -23,7 +26,7 @@ export function AddBudgetModal({ open, onClose }) {
   const [error, setError] = useState("");
 
   const reset = () => {
-    setForm({ category: CATEGORIES[0], limit_amount: "", period: "monthly" });
+    setForm({ title: "", description: "", category: CATEGORIES[0], limit_amount: "", period: "monthly" });
     setError("");
   };
 
@@ -49,12 +52,15 @@ export function AddBudgetModal({ open, onClose }) {
     setSubmitting(true);
     try {
       await createBudget({
+        title: form.title.trim(),
+        description: form.description.trim(),
         category: form.category,
         budgetAmount: amount,
         color: CATEGORY_COLORS[form.category] || "#6b7280",
         period: form.period,
       });
       events.emit("budget-created");
+      toast.success("Budget created successfully");
       handleClose();
     } catch (err) {
       setError(err.message || "Failed to create budget");
@@ -71,6 +77,30 @@ export function AddBudgetModal({ open, onClose }) {
             {error}
           </div>
         )}
+
+        {/* Title */}
+        <div>
+          <label className="block mb-2">Title</label>
+          <input
+            type="text"
+            value={form.title}
+            onChange={handleChange("title")}
+            placeholder="e.g. Grocery & Restaurants"
+            className="w-full px-4 py-2 bg-input-background border border-border rounded-lg"
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block mb-2">Description</label>
+          <input
+            type="text"
+            value={form.description}
+            onChange={handleChange("description")}
+            placeholder="e.g. Weekly groceries and eating out"
+            className="w-full px-4 py-2 bg-input-background border border-border rounded-lg"
+          />
+        </div>
 
         {/* Category */}
         <div>

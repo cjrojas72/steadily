@@ -1,42 +1,49 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
-import { createTransaction } from "@/services/transactionService";
+import { updateTransaction } from "@/services/transactionService";
 import { events } from "@/lib/events";
 import { CATEGORY_COLORS } from "@/lib/constants";
 
 const CATEGORIES = Object.keys(CATEGORY_COLORS);
 
 /**
- * Modal form for adding a new transaction.
- * Fields match the backend schema: description, category (category_id),
- * amount, type, transaction_date.
+ * Modal form for editing an existing transaction.
+ *
+ * @param {{
+ *   open: boolean,
+ *   onClose: () => void,
+ *   transaction: object | null,
+ * }} props
  */
-export function AddTransactionModal({ open, onClose }) {
+export function EditTransactionModal({ open, onClose, transaction }) {
   const [form, setForm] = useState({
     description: "",
     category: CATEGORIES[0],
     amount: "",
     type: "expense",
-    transaction_date: new Date().toISOString().split("T")[0],
+    transaction_date: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const reset = () => {
-    setForm({
-      description: "",
-      category: CATEGORIES[0],
-      amount: "",
-      type: "expense",
-      transaction_date: new Date().toISOString().split("T")[0],
-    });
-    setError("");
-  };
+  // Pre-fill form when the transaction changes
+  useEffect(() => {
+    if (transaction) {
+      setForm({
+        description: transaction.name || "",
+        category: transaction.category || CATEGORIES[0],
+        amount: String(Math.abs(transaction.amount)),
+        type: transaction.type || "expense",
+        transaction_date: transaction.date || "",
+      });
+      setError("");
+    }
+  }, [transaction]);
 
   const handleClose = () => {
-    reset();
+    setError("");
     onClose();
   };
 
@@ -64,25 +71,25 @@ export function AddTransactionModal({ open, onClose }) {
 
     setSubmitting(true);
     try {
-      await createTransaction({
+      await updateTransaction(transaction.id, {
         name: form.description.trim(),
         category: form.category,
         amount: form.type === "expense" ? -amount : amount,
         date: form.transaction_date,
         type: form.type,
       });
-      events.emit("transaction-created");
-      toast.success("Transaction added successfully");
+      events.emit("transaction-updated");
+      toast.success("Transaction updated successfully");
       handleClose();
     } catch (err) {
-      setError(err.message || "Failed to create transaction");
+      setError(err.message || "Failed to update transaction");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title="Add Transaction">
+    <Modal open={open} onClose={handleClose} title="Edit Transaction">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg p-3 text-sm text-red-700 dark:text-red-200">
@@ -173,10 +180,10 @@ export function AddTransactionModal({ open, onClose }) {
           {submitting ? (
             <>
               <Spinner size="w-4 h-4" inline />
-              Adding...
+              Saving...
             </>
           ) : (
-            "Add Transaction"
+            "Save Changes"
           )}
         </button>
       </form>

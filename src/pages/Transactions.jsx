@@ -1,11 +1,16 @@
 import { useState } from "react";
-import { Download, TrendingUp, CreditCard, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { Download, TrendingUp, CreditCard, Plus, Pencil, Trash2 } from "lucide-react";
 import { useTransactions } from "@/hooks/useTransactions";
+import { deleteTransaction } from "@/services/transactionService";
+import { events } from "@/lib/events";
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { SearchInput } from "@/components/SearchInput";
 import { Spinner } from "@/components/Spinner";
 import { AddTransactionModal } from "@/components/AddTransactionModal";
+import { EditTransactionModal } from "@/components/EditTransactionModal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { formatCurrency, formatDateLong, formatDate } from "@/utils/formatters";
 
 export function Transactions() {
@@ -20,6 +25,24 @@ export function Transactions() {
   } = useTransactions();
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingTxn, setEditingTxn] = useState(null);
+  const [deletingTxn, setDeletingTxn] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deletingTxn) return;
+    setDeleteLoading(true);
+    try {
+      await deleteTransaction(deletingTxn.id);
+      events.emit("transaction-deleted");
+      toast.success("Transaction deleted successfully");
+      setDeletingTxn(null);
+    } catch (err) {
+      toast.error(err.message || "Failed to delete transaction");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -81,13 +104,14 @@ export function Transactions() {
                     <th className="text-left px-6 py-3 text-muted-foreground">Description</th>
                     <th className="text-left px-6 py-3 text-muted-foreground">Category</th>
                     <th className="text-right px-6 py-3 text-muted-foreground">Amount</th>
+                    <th className="px-6 py-3 text-muted-foreground w-24"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {transactions.map((t, index) => (
                     <tr
                       key={t.id}
-                      className={`border-t border-border hover:bg-accent/50 cursor-pointer ${
+                      className={`border-t border-border hover:bg-accent/50 ${
                         index % 2 !== 0 ? "bg-muted/20" : ""
                       }`}
                     >
@@ -120,6 +144,24 @@ export function Transactions() {
                           {formatCurrency(t.amount, true)}
                         </span>
                       </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setEditingTxn(t)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-accent transition-colors cursor-pointer"
+                            title="Edit transaction"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeletingTxn(t)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+                            title="Delete transaction"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -150,9 +192,25 @@ export function Transactions() {
                         </p>
                       </div>
                     </div>
-                    <p className={t.amount > 0 ? "text-green-600" : ""}>
-                      {formatCurrency(t.amount, true)}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className={t.amount > 0 ? "text-green-600" : ""}>
+                        {formatCurrency(t.amount, true)}
+                      </p>
+                      <button
+                        onClick={() => setEditingTxn(t)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-accent transition-colors cursor-pointer"
+                        title="Edit transaction"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeletingTxn(t)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+                        title="Delete transaction"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   <span className="px-3 py-1 bg-muted rounded-full text-sm">
                     {t.category}
@@ -173,6 +231,22 @@ export function Transactions() {
       <AddTransactionModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
+      />
+
+      <EditTransactionModal
+        open={!!editingTxn}
+        onClose={() => setEditingTxn(null)}
+        transaction={editingTxn}
+      />
+
+      <ConfirmDialog
+        open={!!deletingTxn}
+        onClose={() => setDeletingTxn(null)}
+        onConfirm={handleDelete}
+        title="Delete Transaction"
+        message={`Are you sure you want to delete "${deletingTxn?.name}"? This action cannot be undone.`}
+        confirmText="Delete Transaction"
+        loading={deleteLoading}
       />
     </div>
   );

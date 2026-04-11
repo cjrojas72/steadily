@@ -29,11 +29,21 @@ export function useBudgets() {
     load();
   }, [load]);
 
-  // Re-fetch when a new budget is created
+  // Re-fetch when budgets or transactions change
   useEffect(() => {
-    const handleCreated = () => load();
-    events.on("budget-created", handleCreated);
-    return () => events.off("budget-created", handleCreated);
+    const handleRefresh = () => load();
+    events.on("budget-created", handleRefresh);
+    events.on("budget-deleted", handleRefresh);
+    events.on("transaction-created", handleRefresh);
+    events.on("transaction-updated", handleRefresh);
+    events.on("transaction-deleted", handleRefresh);
+    return () => {
+      events.off("budget-created", handleRefresh);
+      events.off("budget-deleted", handleRefresh);
+      events.off("transaction-created", handleRefresh);
+      events.off("transaction-updated", handleRefresh);
+      events.off("transaction-deleted", handleRefresh);
+    };
   }, [load]);
 
   return { budgets, summary, loading, error, refresh: load };

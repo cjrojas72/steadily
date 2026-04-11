@@ -23,7 +23,7 @@ export async function getBudgetSummary() {
 
 /**
  * Create a new budget.
- * @param {object} data - { category, budgetAmount, color }
+ * @param {object} data - { title, description, category, budgetAmount, color, period }
  * @returns {Promise<object>}
  */
 export async function createBudget(data) {
@@ -60,4 +60,21 @@ export async function deleteBudget(id) {
   // TODO: replace with  apiFetch(`/budgets/${id}`, { method: "DELETE" })
   const index = mockBudgets.findIndex((b) => b.id === id);
   if (index !== -1) mockBudgets.splice(index, 1);
+}
+
+/**
+ * Adjust the spentAmount on a budget matching the given category.
+ * Positive amount increases spent (expense), negative decreases (income refund, deletion, etc).
+ *
+ * TODO: remove this function when wired to backend – the API will
+ *       calculate spent amounts from actual transactions automatically.
+ *
+ * @param {string} category
+ * @param {number} amount - absolute value to add to spentAmount
+ */
+export function adjustBudgetSpent(category, amount) {
+  const budget = mockBudgets.find((b) => b.category === category);
+  if (budget) {
+    budget.spentAmount = Math.max(0, budget.spentAmount + amount);
+  }
 }

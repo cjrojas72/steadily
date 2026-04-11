@@ -47,12 +47,12 @@ export const categoryData = [
 
 // ── Budgets ──
 export const budgets = [
-  { id: 1, category: "Food & Dining", budgetAmount: 1000, spentAmount: 850, color: "#3b82f6" },
-  { id: 2, category: "Transportation", budgetAmount: 400, spentAmount: 320, color: "#8b5cf6" },
-  { id: 3, category: "Shopping", budgetAmount: 500, spentAmount: 540, color: "#ec4899" },
-  { id: 4, category: "Entertainment", budgetAmount: 300, spentAmount: 280, color: "#f59e0b" },
-  { id: 5, category: "Bills & Utilities", budgetAmount: 1500, spentAmount: 1200, color: "#10b981" },
-  { id: 6, category: "Health & Fitness", budgetAmount: 200, spentAmount: 150, color: "#06b6d4" },
+  { id: 1, title: "Grocery & Restaurants", description: "Weekly groceries, eating out, and coffee shops", category: "Food & Dining", budgetAmount: 1000, spentAmount: 850, color: "#3b82f6" },
+  { id: 2, title: "Commute & Travel", description: "Gas, rideshares, and public transit", category: "Transportation", budgetAmount: 400, spentAmount: 320, color: "#8b5cf6" },
+  { id: 3, title: "Retail & Online", description: "Clothes, household items, and online orders", category: "Shopping", budgetAmount: 500, spentAmount: 540, color: "#ec4899" },
+  { id: 4, title: "Fun Money", description: "Movies, games, streaming, and events", category: "Entertainment", budgetAmount: 300, spentAmount: 280, color: "#f59e0b" },
+  { id: 5, title: "Monthly Bills", description: "Rent, electric, water, and internet", category: "Bills & Utilities", budgetAmount: 1500, spentAmount: 1200, color: "#10b981" },
+  { id: 6, title: "Gym & Wellness", description: "Gym membership and health products", category: "Health & Fitness", budgetAmount: 200, spentAmount: 150, color: "#06b6d4" },
 ];
 
 // ── Analytics: monthly trend ──

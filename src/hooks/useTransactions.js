@@ -34,11 +34,17 @@ export function useTransactions() {
     load();
   }, [load]);
 
-  // Re-fetch when a new transaction is created
+  // Re-fetch when transactions change (created, updated, or deleted)
   useEffect(() => {
-    const handleCreated = () => load();
-    events.on("transaction-created", handleCreated);
-    return () => events.off("transaction-created", handleCreated);
+    const handleRefresh = () => load();
+    events.on("transaction-created", handleRefresh);
+    events.on("transaction-updated", handleRefresh);
+    events.on("transaction-deleted", handleRefresh);
+    return () => {
+      events.off("transaction-created", handleRefresh);
+      events.off("transaction-updated", handleRefresh);
+      events.off("transaction-deleted", handleRefresh);
+    };
   }, [load]);
 
   return {

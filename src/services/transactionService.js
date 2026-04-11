@@ -1,5 +1,7 @@
 // import { apiFetch } from "@/lib/api";
 import { transactions as mockTransactions } from "@/data/mockData";
+// TODO: remove this import when wired to backend – spent amounts will be calculated server-side
+import { adjustBudgetSpent } from "@/services/budgetService";
 
 /**
  * Fetch all transactions, optionally filtered.
@@ -44,7 +46,40 @@ export async function createTransaction(data) {
     ...data,
   };
   mockTransactions.unshift(newTransaction);
+
+  // TODO: remove when wired to backend – the API recalculates spent from transactions
+  if (data.type === "expense") {
+    adjustBudgetSpent(data.category, Math.abs(data.amount));
+  }
+
   return newTransaction;
+}
+
+/**
+ * Update an existing transaction.
+ * @param {number} id
+ * @param {object} data - { name, category, amount, date, type }
+ * @returns {Promise<object>}
+ */
+export async function updateTransaction(id, data) {
+  // TODO: replace with  apiFetch(`/transactions/${id}`, { method: "PATCH", body: JSON.stringify(data) })
+  const txn = mockTransactions.find((t) => t.id === id);
+  if (!txn) throw new Error("Transaction not found");
+
+  // TODO: remove budget adjustment when wired to backend
+  // Reverse old spent amount
+  if (txn.type === "expense") {
+    adjustBudgetSpent(txn.category, -Math.abs(txn.amount));
+  }
+
+  Object.assign(txn, data);
+
+  // Apply new spent amount
+  if (txn.type === "expense") {
+    adjustBudgetSpent(txn.category, Math.abs(txn.amount));
+  }
+
+  return txn;
 }
 
 /**
@@ -55,7 +90,16 @@ export async function createTransaction(data) {
 export async function deleteTransaction(id) {
   // TODO: replace with  apiFetch(`/transactions/${id}`, { method: "DELETE" })
   const index = mockTransactions.findIndex((t) => t.id === id);
-  if (index !== -1) mockTransactions.splice(index, 1);
+  if (index !== -1) {
+    const txn = mockTransactions[index];
+
+    // TODO: remove when wired to backend – the API recalculates spent from transactions
+    if (txn.type === "expense") {
+      adjustBudgetSpent(txn.category, -Math.abs(txn.amount));
+    }
+
+    mockTransactions.splice(index, 1);
+  }
 }
 
 /**
