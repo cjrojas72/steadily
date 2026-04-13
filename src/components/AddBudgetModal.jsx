@@ -1,12 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
 import { createBudget } from "@/services/budgetService";
+import { getCategories } from "@/services/transactionService";
 import { events } from "@/lib/events";
-import { CATEGORY_COLORS } from "@/lib/constants";
 
-const CATEGORIES = Object.keys(CATEGORY_COLORS);
 const PERIODS = ["monthly", "weekly", "yearly"];
 
 /**
@@ -15,18 +14,30 @@ const PERIODS = ["monthly", "weekly", "yearly"];
  * limit_amount, period.
  */
 export function AddBudgetModal({ open, onClose }) {
+  const [categories, setCategories] = useState([]);
   const [form, setForm] = useState({
     title: "",
     description: "",
-    category: CATEGORIES[0],
+    category: "",
     limit_amount: "",
     period: "monthly",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  // Fetch categories from API when modal opens
+  useEffect(() => {
+    if (!open) return;
+    getCategories().then((cats) => {
+      setCategories(cats);
+      if (cats.length > 0 && !form.category) {
+        setForm((prev) => ({ ...prev, category: cats[0].id }));
+      }
+    });
+  }, [open]);
+
   const reset = () => {
-    setForm({ title: "", description: "", category: CATEGORIES[0], limit_amount: "", period: "monthly" });
+    setForm({ title: "", description: "", category: categories[0]?.id || "", limit_amount: "", period: "monthly" });
     setError("");
   };
 
@@ -51,12 +62,13 @@ export function AddBudgetModal({ open, onClose }) {
 
     setSubmitting(true);
     try {
+      const selectedCat = categories.find((c) => c.id === form.category);
       await createBudget({
         title: form.title.trim(),
         description: form.description.trim(),
         category: form.category,
         budgetAmount: amount,
-        color: CATEGORY_COLORS[form.category] || "#6b7280",
+        color: selectedCat?.color || "#6b7280",
         period: form.period,
       });
       events.emit("budget-created");
@@ -110,9 +122,9 @@ export function AddBudgetModal({ open, onClose }) {
             onChange={handleChange("category")}
             className="w-full px-4 py-2 bg-input-background border border-border rounded-lg"
           >
-            {CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
               </option>
             ))}
           </select>

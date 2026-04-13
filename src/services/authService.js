@@ -1,4 +1,4 @@
-// import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 /**
  * Log in with email + password.
@@ -7,10 +7,14 @@
  * @returns {Promise<{ token: string, user: object }>}
  */
 export async function login(email, password) {
-  // TODO: replace with  apiFetch("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) })
+  const data = await apiFetch("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
   return {
-    token: "mock-jwt-token",
-    user: { id: "1", email, firstName: "John", lastName: "Doe" },
+    token: data.access_token,
+    refreshToken: data.refresh_token,
+    user: data.user || { email },
   };
 }
 
@@ -20,10 +24,18 @@ export async function login(email, password) {
  * @returns {Promise<{ token: string, user: object }>}
  */
 export async function signup(data) {
-  // TODO: replace with  apiFetch("/auth/signup", { method: "POST", body: JSON.stringify(data) })
+  const result = await apiFetch("/auth/signup", {
+    method: "POST",
+    body: JSON.stringify({
+      email: data.email,
+      password: data.password,
+      display_name: `${data.firstName} ${data.lastName}`.trim(),
+    }),
+  });
   return {
-    token: "mock-jwt-token",
-    user: { id: "1", ...data },
+    token: result.access_token,
+    refreshToken: result.refresh_token,
+    user: result.user || { email: data.email, ...data },
   };
 }
 
@@ -32,15 +44,22 @@ export async function signup(data) {
  * @returns {Promise<void>}
  */
 export async function logout() {
-  // TODO: replace with  apiFetch("/auth/logout", { method: "POST" })
+  try {
+    await apiFetch("/auth/logout", { method: "POST" });
+  } catch {
+    // Logout may fail if the token is already expired — that's fine
+  }
 }
 
 /**
  * Refresh the current JWT token.
- * @param {string} refreshToken
+ * @param {string} token
  * @returns {Promise<{ token: string }>}
  */
-export async function refreshToken(refreshToken) {
-  // TODO: replace with  apiFetch("/auth/refresh", { method: "POST", body: JSON.stringify({ refresh_token: refreshToken }) })
-  return { token: "mock-refreshed-jwt-token" };
+export async function refreshToken(token) {
+  const data = await apiFetch("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token: token }),
+  });
+  return { token: data.access_token };
 }

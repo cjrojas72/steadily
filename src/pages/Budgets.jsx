@@ -12,7 +12,6 @@ import { InsightCard } from "@/components/InsightCard";
 import { Spinner } from "@/components/Spinner";
 import { AddBudgetModal } from "@/components/AddBudgetModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { CATEGORY_COLORS } from "@/lib/constants";
 import { formatCurrency, formatPercentage } from "@/utils/formatters";
 
 const INITIAL_LIMIT = 10;
@@ -40,11 +39,16 @@ export function Budgets() {
     }
   };
 
-  // Derive unique categories from the actual budgets list
-  const categories = useMemo(
-    () => Array.from(new Set(budgets.map((b) => b.category))),
-    [budgets],
-  );
+  // Derive unique categories (with colors) from the actual budgets list
+  const categories = useMemo(() => {
+    const seen = new Map();
+    for (const b of budgets) {
+      if (!seen.has(b.category)) {
+        seen.set(b.category, b.color || "#6b7280");
+      }
+    }
+    return Array.from(seen, ([name, color]) => ({ name, color }));
+  }, [budgets]);
 
   // Filter by selected category
   const filteredBudgets = useMemo(
@@ -156,19 +160,19 @@ export function Budgets() {
         </button>
         {categories.map((cat) => (
           <button
-            key={cat}
-            onClick={() => { setCategoryFilter(cat); setShowAll(false); }}
+            key={cat.name}
+            onClick={() => { setCategoryFilter(cat.name); setShowAll(false); }}
             className={`px-4 py-1.5 rounded-full text-sm transition-colors cursor-pointer flex items-center gap-2 ${
-              categoryFilter === cat
+              categoryFilter === cat.name
                 ? "bg-primary text-primary-foreground"
                 : "bg-card border border-border hover:bg-accent"
             }`}
           >
             <span
               className="w-2.5 h-2.5 rounded-full shrink-0"
-              style={{ backgroundColor: CATEGORY_COLORS[cat] || "#6b7280" }}
+              style={{ backgroundColor: cat.color }}
             />
-            {cat}
+            {cat.name}
           </button>
         ))}
       </div>
@@ -186,7 +190,7 @@ export function Budgets() {
             <div className="flex items-center gap-2">
               <span
                 className="w-3 h-3 rounded-full shrink-0"
-                style={{ backgroundColor: CATEGORY_COLORS[category] || "#6b7280" }}
+                style={{ backgroundColor: items[0]?.color || "#6b7280" }}
               />
               <h3 className="text-lg font-semibold">{category}</h3>
               <span className="text-sm text-muted-foreground">

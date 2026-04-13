@@ -64,8 +64,7 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const result = await signupService(data);
-      setToken(result.token);
-      setUser(result.user);
+      // Don't auto-login — user needs to verify their email first
       return result;
     } catch (err) {
       setError(err.message);

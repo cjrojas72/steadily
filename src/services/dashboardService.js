@@ -1,18 +1,43 @@
-// import { apiFetch } from "@/lib/api";
-import {
-  dashboardSummary as mockSummary,
-  monthlyData as mockMonthlyData,
-  categoryData as mockCategoryData,
-} from "@/data/mockData";
-import { getRecentTransactions } from "./transactionService";
+import { apiFetch } from "@/lib/api";
+import { getRecentTransactions, getCategories } from "./transactionService";
 
 /**
  * Fetch dashboard summary (balance, income, expenses, savings).
+ * Uses the monthly-totals analytics endpoint.
  * @returns {Promise<object>}
  */
 export async function getDashboardSummary() {
-  // TODO: replace with  apiFetch("/analytics/summary")
-  return { ...mockSummary };
+  const data = await apiFetch("/analytics/monthly-totals");
+  const rows = Array.isArray(data) ? data : [];
+
+  // Current month totals
+  const current = rows[0] || {};
+  const income = Number(current.income || 0);
+  const expenses = Number(current.expenses || 0);
+
+  // Savings = current month net (what you saved this month)
+  const savings = income - expenses;
+
+  // Total balance = cumulative all-time (income - expenses)
+  const totalBalance = rows.reduce(
+    (sum, r) => sum + Number(r.income || 0) - Number(r.expenses || 0),
+    0,
+  );
+
+  // Previous month for change calculation
+  const prev = rows[1] || {};
+  const prevSavings = Number(prev.income || 0) - Number(prev.expenses || 0);
+  const savingsChange = prevSavings !== 0
+    ? ((savings - prevSavings) / Math.abs(prevSavings)) * 100
+    : 0;
+
+  return {
+    totalBalance,
+    income,
+    expenses,
+    savings,
+    savingsChange: Math.round(savingsChange * 10) / 10,
+  };
 }
 
 /**
@@ -20,8 +45,15 @@ export async function getDashboardSummary() {
  * @returns {Promise<Array>}
  */
 export async function getIncomeVsExpenses() {
-  // TODO: replace with  apiFetch("/analytics/income-vs-expenses")
-  return [...mockMonthlyData];
+  const data = await apiFetch("/analytics/monthly-totals");
+  const rows = Array.isArray(data) ? data : [];
+  return rows
+    .map((r) => ({
+      month: monthName(r.month),
+      income: Number(r.income || 0),
+      expenses: Number(r.expenses || 0),
+    }))
+    .reverse();
 }
 
 /**
@@ -29,8 +61,13 @@ export async function getIncomeVsExpenses() {
  * @returns {Promise<Array>}
  */
 export async function getSpendingByCategory() {
-  // TODO: replace with  apiFetch("/analytics/spending-by-category")
-  return [...mockCategoryData];
+  const data = await apiFetch("/analytics/monthly-spending");
+  const rows = Array.isArray(data) ? data : [];
+  return rows.map((r) => ({
+    name: r.category_name || r.category_id,
+    value: Number(r.total || 0),
+    color: r.color || "#6b7280",
+  }));
 }
 
 /**
@@ -38,13 +75,32 @@ export async function getSpendingByCategory() {
  * @returns {Promise<object>}
  */
 export async function getDashboardData() {
-  const [summary, incomeVsExpenses, spendingByCategory, recentTransactions] =
+  const [summary, incomeVsExpenses, spendingByCategory, rawTransactions, cats] =
     await Promise.all([
       getDashboardSummary(),
       getIncomeVsExpenses(),
       getSpendingByCategory(),
       getRecentTransactions(5),
+      getCategories(),
     ]);
 
+  // Normalise raw backend transactions for display
+  const catMap = Object.fromEntries(cats.map((c) => [c.id, c]));
+  const recentTransactions = (Array.isArray(rawTransactions) ? rawTransactions : []).map((t) => {
+    const absAmount = Number(t.amount || 0);
+    return {
+      ...t,
+      name: t.description || t.name || "",
+      category: catMap[t.category_id]?.name || t.category_id || t.category || "",
+      date: t.transaction_date || t.date || "",
+      amount: t.type === "expense" ? -absAmount : absAmount,
+    };
+  });
+
   return { summary, incomeVsExpenses, spendingByCategory, recentTransactions };
+}
+
+function monthName(num) {
+  const names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return names[num] || String(num);
 }

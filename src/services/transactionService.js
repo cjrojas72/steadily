@@ -1,7 +1,4 @@
-// import { apiFetch } from "@/lib/api";
-import { transactions as mockTransactions } from "@/data/mockData";
-// TODO: remove this import when wired to backend – spent amounts will be calculated server-side
-import { adjustBudgetSpent } from "@/services/budgetService";
+import { apiFetch } from "@/lib/api";
 
 /**
  * Fetch all transactions, optionally filtered.
@@ -9,19 +6,13 @@ import { adjustBudgetSpent } from "@/services/budgetService";
  * @returns {Promise<Array>}
  */
 export async function getTransactions(filters = {}) {
-  // TODO: replace with  apiFetch("/transactions", { params: filters })
-  let results = [...mockTransactions];
+  const params = new URLSearchParams();
+  if (filters.search) params.set("search", filters.search);
+  if (filters.category && filters.category !== "all") params.set("category_id", filters.category);
 
-  if (filters.search) {
-    const term = filters.search.toLowerCase();
-    results = results.filter((t) => t.name.toLowerCase().includes(term));
-  }
-
-  if (filters.category && filters.category !== "all") {
-    results = results.filter((t) => t.category === filters.category);
-  }
-
-  return results;
+  const qs = params.toString();
+  const data = await apiFetch(`/transactions${qs ? `?${qs}` : ""}`);
+  return data.items || data;
 }
 
 /**
@@ -30,86 +21,65 @@ export async function getTransactions(filters = {}) {
  * @returns {Promise<Array>}
  */
 export async function getRecentTransactions(limit = 5) {
-  // TODO: replace with  apiFetch(`/transactions?limit=${limit}&sort=-date`)
-  return mockTransactions.slice(0, limit);
+  const data = await apiFetch(`/transactions?per_page=${limit}&sort_by=transaction_date&sort_order=desc`);
+  return data.items || data;
 }
 
 /**
  * Create a new transaction.
- * Budget adjustments for income allocations are handled separately
- * via budgetService.applyIncomeToBudgets() — called from the modal.
- *
  * @param {object} data - { name, category, amount, date, type }
  * @returns {Promise<object>}
  */
 export async function createTransaction(data) {
-  // TODO: replace with  apiFetch("/transactions", { method: "POST", body: JSON.stringify(data) })
-  const newTransaction = {
-    id: Date.now(),
-    ...data,
-  };
-  mockTransactions.unshift(newTransaction);
-
-  // TODO: remove when wired to backend – the API recalculates spent from transactions
-  if (data.type === "expense") {
-    adjustBudgetSpent(data.category, Math.abs(data.amount));
-  }
-
-  return newTransaction;
+  return apiFetch("/transactions", {
+    method: "POST",
+    body: JSON.stringify({
+      category_id: data.category,
+      amount: Math.abs(data.amount),
+      type: data.type,
+      description: data.name,
+      transaction_date: data.date,
+      source: "manual",
+    }),
+  });
 }
 
 /**
  * Update an existing transaction.
- * @param {number} id
+ * @param {string} id
  * @param {object} data - { name, category, amount, date, type }
  * @returns {Promise<object>}
  */
 export async function updateTransaction(id, data) {
-  // TODO: replace with  apiFetch(`/transactions/${id}`, { method: "PATCH", body: JSON.stringify(data) })
-  const txn = mockTransactions.find((t) => t.id === id);
-  if (!txn) throw new Error("Transaction not found");
+  const payload = {};
+  if (data.name !== undefined) payload.description = data.name;
+  if (data.category !== undefined) payload.category_id = data.category;
+  if (data.amount !== undefined) payload.amount = Math.abs(data.amount);
+  if (data.type !== undefined) payload.type = data.type;
+  if (data.date !== undefined) payload.transaction_date = data.date;
 
-  // TODO: remove budget adjustment when wired to backend
-  // Reverse old expense impact
-  if (txn.type === "expense") {
-    adjustBudgetSpent(txn.category, -Math.abs(txn.amount));
-  }
-
-  Object.assign(txn, data);
-
-  // Apply new expense impact
-  if (txn.type === "expense") {
-    adjustBudgetSpent(txn.category, Math.abs(txn.amount));
-  }
-
-  return txn;
+  return apiFetch(`/transactions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 /**
  * Delete a transaction by id.
- * @param {number} id
+ * @param {string} id
  * @returns {Promise<void>}
  */
 export async function deleteTransaction(id) {
-  // TODO: replace with  apiFetch(`/transactions/${id}`, { method: "DELETE" })
-  const index = mockTransactions.findIndex((t) => t.id === id);
-  if (index !== -1) {
-    const txn = mockTransactions[index];
-
-    // TODO: remove when wired to backend
-    if (txn.type === "expense") {
-      adjustBudgetSpent(txn.category, -Math.abs(txn.amount));
-    }
-
-    mockTransactions.splice(index, 1);
-  }
+  await apiFetch(`/transactions/${id}`, { method: "DELETE" });
 }
 
 /**
- * Get the unique list of categories from all transactions.
- * @returns {Promise<string[]>}
+ * Get the full list of category objects ({ id, name, color }).
+ * @returns {Promise<Array<{ id: string, name: string, color: string }>>}
  */
 export async function getCategories() {
-  // TODO: replace with  apiFetch("/categories")
-  return Array.from(new Set(mockTransactions.map((t) => t.category)));
+  const data = await apiFetch("/categories");
+  return Array.isArray(data)
+    ? data.map((c) => ({ id: c.id, name: c.name || c.id, color: c.color || "#6b7280" }))
+    : [];
 }

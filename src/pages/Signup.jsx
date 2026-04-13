@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, Navigate } from "react-router";
 import { useAuth } from "@/hooks/useAuth";
-import { UserPlus } from "lucide-react";
+import { UserPlus, CheckCircle, Mail } from "lucide-react";
 
 export function Signup() {
   const { signup, isAuthenticated, loading, error, clearError } = useAuth();
@@ -11,8 +11,26 @@ export function Signup() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState("");
+  const [success, setSuccess] = useState(false);
 
+  // If already authenticated, redirect to dashboard
   if (isAuthenticated) return <Navigate to="/" replace />;
+
+  // Real-time validation hints
+  const passwordTooShort = password.length > 0 && password.length < 6;
+  const passwordsMatch = confirmPassword.length === 0 || password === confirmPassword;
+
+  // Form validity for disabling the button
+  const isFormValid = useMemo(() => {
+    return (
+      firstName.trim().length > 0 &&
+      lastName.trim().length > 0 &&
+      email.trim().length > 0 &&
+      password.length >= 6 &&
+      confirmPassword.length > 0 &&
+      password === confirmPassword
+    );
+  }, [firstName, lastName, email, password, confirmPassword]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,12 +49,65 @@ export function Signup() {
 
     try {
       await signup({ email, password, firstName, lastName });
+      setSuccess(true);
     } catch {
       // error is surfaced via context
     }
   };
 
   const displayError = localError || error;
+
+  // Success state — show confirmation message
+  if (success) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-primary text-3xl mb-2">Steadily</h1>
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+            </div>
+
+            <h2 className="text-xl font-semibold">Account Created!</h2>
+
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Mail className="w-5 h-5" />
+              <p>A verification email has been sent to</p>
+            </div>
+            <p className="font-medium">{email}</p>
+
+            <p className="text-sm text-muted-foreground">
+              Please check your inbox and click the verification link to activate
+              your account. Check your spam folder if you don't see it.
+            </p>
+
+            <div className="pt-4 space-y-3">
+              <Link
+                to="/login"
+                className="block w-full bg-primary text-primary-foreground px-4 py-2 rounded-lg text-center hover:bg-primary/90 transition-colors"
+              >
+                Go to Login
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                Didn't receive the email?{" "}
+                <button
+                  onClick={() => setSuccess(false)}
+                  className="text-primary hover:underline cursor-pointer"
+                >
+                  Try again
+                </button>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -58,7 +129,7 @@ export function Signup() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block mb-2">First Name</label>
+                <label className="block mb-2">First Name <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={firstName}
@@ -69,7 +140,7 @@ export function Signup() {
                 />
               </div>
               <div>
-                <label className="block mb-2">Last Name</label>
+                <label className="block mb-2">Last Name <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   value={lastName}
@@ -82,7 +153,7 @@ export function Signup() {
             </div>
 
             <div>
-              <label className="block mb-2">Email</label>
+              <label className="block mb-2">Email <span className="text-red-500">*</span></label>
               <input
                 type="email"
                 value={email}
@@ -94,7 +165,7 @@ export function Signup() {
             </div>
 
             <div>
-              <label className="block mb-2">Password</label>
+              <label className="block mb-2">Password <span className="text-red-500">*</span></label>
               <input
                 type="password"
                 value={password}
@@ -103,24 +174,38 @@ export function Signup() {
                 required
                 className="w-full px-4 py-2 bg-input-background border border-border rounded-lg"
               />
+              {passwordTooShort && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Password must be at least 6 characters
+                </p>
+              )}
             </div>
 
             <div>
-              <label className="block mb-2">Confirm Password</label>
+              <label className="block mb-2">Confirm Password <span className="text-red-500">*</span></label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm your password"
                 required
-                className="w-full px-4 py-2 bg-input-background border border-border rounded-lg"
+                className={`w-full px-4 py-2 bg-input-background border rounded-lg ${
+                  !passwordsMatch
+                    ? "border-red-500"
+                    : "border-border"
+                }`}
               />
+              {!passwordsMatch && (
+                <p className="text-xs text-red-600 mt-1">
+                  Passwords do not match
+                </p>
+              )}
             </div>
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer hover:bg-primary/90 transition-colors"
+              disabled={loading || !isFormValid}
+              className="w-full bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-primary/90 transition-colors"
             >
               <UserPlus className="w-4 h-4" />
               {loading ? "Creating account..." : "Create Account"}
