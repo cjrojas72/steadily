@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Download, TrendingUp, CreditCard, Plus, Pencil, Trash2 } from "lucide-react";
 import { useTransactions } from "@/hooks/useTransactions";
 import { deleteTransaction } from "@/services/transactionService";
+import { exportTransactionsCsv } from "@/utils/exportCsv";
 import { events } from "@/lib/events";
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
@@ -75,12 +76,23 @@ export function Transactions() {
               className="px-4 py-2 bg-input-background border border-border rounded-lg"
             >
               {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat === "all" ? "All Categories" : cat}
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
                 </option>
               ))}
             </select>
-            <button className="px-4 py-2 border border-border rounded-lg flex items-center gap-2 hover:bg-accent cursor-pointer transition-colors">
+            <button
+              onClick={() => {
+                if (transactions.length === 0) {
+                  toast.error("No transactions to export");
+                  return;
+                }
+                exportTransactionsCsv(transactions);
+                toast.success(`Exported ${transactions.length} transaction${transactions.length !== 1 ? "s" : ""}`);
+              }}
+              disabled={transactions.length === 0}
+              className="px-4 py-2 border border-border rounded-lg flex items-center gap-2 hover:bg-accent cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Export</span>
             </button>

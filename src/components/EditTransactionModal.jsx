@@ -2,13 +2,10 @@ import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
-import { updateTransaction } from "@/services/transactionService";
+import { updateTransaction, getCategories } from "@/services/transactionService";
 import { getBudgetsByCategory, applyIncomeToBudgets } from "@/services/budgetService";
 import { events } from "@/lib/events";
-import { CATEGORY_COLORS } from "@/lib/constants";
 import { formatCurrency } from "@/utils/formatters";
-
-const CATEGORIES = Object.keys(CATEGORY_COLORS);
 
 /**
  * Modal form for editing an existing transaction.
@@ -22,9 +19,10 @@ const CATEGORIES = Object.keys(CATEGORY_COLORS);
  * }} props
  */
 export function EditTransactionModal({ open, onClose, transaction }) {
+  const [categories, setCategories] = useState([]);
   const [form, setForm] = useState({
     description: "",
-    category: CATEGORIES[0],
+    category: "",
     amount: "",
     type: "expense",
     transaction_date: "",
@@ -36,12 +34,19 @@ export function EditTransactionModal({ open, onClose, transaction }) {
   const [categoryBudgets, setCategoryBudgets] = useState([]);
   const [allocations, setAllocations] = useState({});
 
+  // Fetch categories from API when modal opens
+  useEffect(() => {
+    if (!open) return;
+    getCategories().then((cats) => setCategories(cats));
+  }, [open]);
+
   // Pre-fill form when the transaction changes
   useEffect(() => {
     if (transaction) {
       setForm({
         description: transaction.name || "",
-        category: transaction.category || CATEGORIES[0],
+        // Use category_id (UUID) if available, fall back to category
+        category: transaction.category_id || transaction.category || "",
         amount: String(Math.abs(transaction.amount)),
         type: transaction.type || "expense",
         transaction_date: transaction.date || "",
@@ -109,6 +114,20 @@ export function EditTransactionModal({ open, onClose, transaction }) {
   const hasBudgets = categoryBudgets.length > 0;
   const hasAllocations = checkedAllocations.length > 0;
 
+  // Form validity check for disabling submit
+  const parsedAmountValid = parseFloat(form.amount) > 0;
+  const baseFieldsValid =
+    form.description.trim().length > 0 &&
+    form.category.length > 0 &&
+    parsedAmountValid &&
+    form.transaction_date.length > 0;
+  const allocationsValid =
+    !isIncome ||
+    !hasAllocations ||
+    (Math.abs(totalPercentage - 100) < 0.01 &&
+      checkedAllocations.every(([, v]) => parseFloat(v.percentage) > 0));
+  const isFormValid = baseFieldsValid && allocationsValid;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -156,7 +175,7 @@ export function EditTransactionModal({ open, onClose, transaction }) {
       // 2. If income with allocations, update each budget directly
       if (isIncome && hasAllocations) {
         const budgetUpdates = checkedAllocations.map(([budgetId, v]) => ({
-          budgetId: Number(budgetId),
+          budgetId,
           amount: (parseFloat(v.percentage) / 100) * amount,
         }));
         await applyIncomeToBudgets(budgetUpdates);
@@ -206,27 +225,29 @@ export function EditTransactionModal({ open, onClose, transaction }) {
 
         {/* Description */}
         <div>
-          <label className="block mb-2">Description</label>
+          <label className="block mb-2">Description <span className="text-red-500">*</span></label>
           <input
             type="text"
             value={form.description}
             onChange={handleChange("description")}
             placeholder="e.g. Whole Foods Market"
             className="w-full px-4 py-2 bg-input-background border border-border rounded-lg"
+            required
           />
         </div>
 
         {/* Category */}
         <div>
-          <label className="block mb-2">Category</label>
+          <label className="block mb-2">Category <span className="text-red-500">*</span></label>
           <select
             value={form.category}
             onChange={handleChange("category")}
             className="w-full px-4 py-2 bg-input-background border border-border rounded-lg"
+            required
           >
-            {CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
               </option>
             ))}
           </select>
@@ -234,7 +255,7 @@ export function EditTransactionModal({ open, onClose, transaction }) {
 
         {/* Amount */}
         <div>
-          <label className="block mb-2">Amount ($)</label>
+          <label className="block mb-2">Amount ($) <span className="text-red-500">*</span></label>
           <input
             type="number"
             min="0.01"
@@ -243,17 +264,19 @@ export function EditTransactionModal({ open, onClose, transaction }) {
             onChange={handleChange("amount")}
             placeholder="0.00"
             className="w-full px-4 py-2 bg-input-background border border-border rounded-lg"
+            required
           />
         </div>
 
         {/* Date */}
         <div>
-          <label className="block mb-2">Date</label>
+          <label className="block mb-2">Date <span className="text-red-500">*</span></label>
           <input
             type="date"
             value={form.transaction_date}
             onChange={handleChange("transaction_date")}
             className="w-full px-4 py-2 bg-input-background border border-border rounded-lg"
+            required
           />
         </div>
 
@@ -328,15 +351,15 @@ export function EditTransactionModal({ open, onClose, transaction }) {
 
         {isIncome && !hasBudgets && (
           <div className="border border-dashed border-border rounded-lg p-3 text-sm text-muted-foreground text-center">
-            No budgets found for {form.category}. Income will be recorded without budget allocation.
+            No budgets found for {categories.find((c) => c.id === form.category)?.name || "this category"}. Income will be recorded without budget allocation.
           </div>
         )}
 
         {/* Submit */}
         <button
           type="submit"
-          disabled={submitting}
-          className="w-full bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer hover:bg-primary/90 transition-colors"
+          disabled={submitting || !isFormValid}
+          className="w-full bg-primary text-primary-foreground px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-primary/90 transition-colors"
         >
           {submitting ? (
             <>

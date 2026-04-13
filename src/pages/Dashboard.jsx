@@ -43,10 +43,7 @@ export function Dashboard() {
           iconBg="bg-primary/10"
           iconColor="text-primary"
           footer={
-            <div className="flex items-center gap-1 text-sm text-green-600">
-              <TrendingUp className="w-4 h-4" />
-              <span>+{summary.balanceChange}% from last month</span>
-            </div>
+            <p className="text-muted-foreground text-sm">All time</p>
           }
         />
         <SummaryCard
@@ -76,7 +73,14 @@ export function Dashboard() {
           iconBg="bg-blue-500/10"
           iconColor="text-blue-600"
           footer={
-            <p className="text-muted-foreground text-sm">This month</p>
+            summary.savingsChange !== 0 ? (
+              <div className={`flex items-center gap-1 text-sm ${summary.savingsChange > 0 ? "text-green-600" : "text-red-600"}`}>
+                {summary.savingsChange > 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                <span>{summary.savingsChange > 0 ? "+" : ""}{summary.savingsChange}% from last month</span>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">This month</p>
+            )
           }
         />
       </div>
