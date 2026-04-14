@@ -1,6 +1,17 @@
 # Steadily
 
+<p align="center">
+  <img src="public/steadily1.png" alt="Steadily screenshot 1" width="220" />
+  <img src="public/steadily2.png" alt="Steadily screenshot 2" width="220" />
+  <img src="public/steadily3.png" alt="Steadily screenshot 3" width="220" />
+  <img src="public/steadily4.png" alt="Steadily screenshot 4" width="220" />
+</p>
+
 A full-stack personal finance application for tracking income, expenses, and budgets. Built with React on the frontend and a serverless Python backend deployed to AWS Lambda.
+
+URL: https://d17qicjfvn0awy.cloudfront.net/
+
+
 
 ## Motivation
 
