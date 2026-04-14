@@ -1,22 +1,35 @@
 import { useState } from "react";
-import { User, Bell, Lock, Globe, Moon, Sun, ChevronRight } from "lucide-react";
+import { User, Bell, Lock, Globe, Moon, Sun, ChevronRight, Construction } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Toggle } from "@/components/Toggle";
 import { PageHeader } from "@/components/PageHeader";
 
+/**
+ * Wrapper that adds an "Under Construction" overlay to a Card.
+ */
+function ComingSoonCard({ children }) {
+  return (
+    <div className="relative">
+      <Card className="pointer-events-none select-none">
+        {children}
+      </Card>
+      <div className="absolute inset-0 bg-background/70 backdrop-blur-[2px] rounded-lg flex flex-col items-center justify-center gap-2">
+        <Construction className="w-8 h-8 text-muted-foreground" />
+        <p className="text-sm font-medium text-muted-foreground">Under Construction</p>
+      </div>
+    </div>
+  );
+}
+
 export function Settings() {
-  const [notifications, setNotifications] = useState({
+  const [notifications] = useState({
     email: true,
     push: false,
     budgetAlerts: true,
     weeklyReports: true,
   });
 
-  const [darkMode, setDarkMode] = useState(false);
-
-  const toggleNotification = (key) => {
-    setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  const [darkMode] = useState(false);
 
   const notificationItems = [
     { key: "email", label: "Email Notifications", description: "Receive updates via email" },
@@ -39,7 +52,7 @@ export function Settings() {
       />
 
       {/* Profile */}
-      <Card>
+      <ComingSoonCard>
         <div className="flex items-center gap-3 mb-6">
           <User className="w-5 h-5 text-muted-foreground" />
           <h3>Profile</h3>
@@ -83,10 +96,10 @@ export function Settings() {
             Save Changes
           </button>
         </div>
-      </Card>
+      </ComingSoonCard>
 
       {/* Notifications */}
-      <Card>
+      <ComingSoonCard>
         <div className="flex items-center gap-3 mb-6">
           <Bell className="w-5 h-5 text-muted-foreground" />
           <h3>Notifications</h3>
@@ -109,15 +122,15 @@ export function Settings() {
               </div>
               <Toggle
                 enabled={notifications[item.key]}
-                onChange={() => toggleNotification(item.key)}
+                onChange={() => {}}
               />
             </div>
           ))}
         </div>
-      </Card>
+      </ComingSoonCard>
 
       {/* Security */}
-      <Card>
+      <ComingSoonCard>
         <div className="flex items-center gap-3 mb-6">
           <Lock className="w-5 h-5 text-muted-foreground" />
           <h3>Security</h3>
@@ -133,10 +146,10 @@ export function Settings() {
             </button>
           ))}
         </div>
-      </Card>
+      </ComingSoonCard>
 
       {/* Preferences */}
-      <Card>
+      <ComingSoonCard>
         <div className="flex items-center gap-3 mb-6">
           <Globe className="w-5 h-5 text-muted-foreground" />
           <h3>Preferences</h3>
@@ -182,24 +195,30 @@ export function Settings() {
                 </p>
               </div>
             </div>
-            <Toggle enabled={darkMode} onChange={() => setDarkMode(!darkMode)} />
+            <Toggle enabled={darkMode} onChange={() => {}} />
           </div>
         </div>
-      </Card>
+      </ComingSoonCard>
 
       {/* Danger Zone */}
-      <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg p-6">
-        <h3 className="text-red-900 dark:text-red-100 mb-4">Danger Zone</h3>
-        <div className="space-y-3">
-          <button className="w-full px-4 py-2 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 cursor-pointer transition-colors">
-            Export All Data
-          </button>
-          <button className="w-full px-4 py-2 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 cursor-pointer transition-colors">
-            Delete All Transactions
-          </button>
-          <button className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 cursor-pointer transition-colors">
-            Delete Account
-          </button>
+      <div className="relative">
+        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg p-6 pointer-events-none select-none">
+          <h3 className="text-red-900 dark:text-red-100 mb-4">Danger Zone</h3>
+          <div className="space-y-3">
+            <button className="w-full px-4 py-2 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg">
+              Export All Data
+            </button>
+            <button className="w-full px-4 py-2 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg">
+              Delete All Transactions
+            </button>
+            <button className="w-full px-4 py-2 bg-red-600 text-white rounded-lg">
+              Delete Account
+            </button>
+          </div>
+        </div>
+        <div className="absolute inset-0 bg-background/70 backdrop-blur-[2px] rounded-lg flex flex-col items-center justify-center gap-2">
+          <Construction className="w-8 h-8 text-muted-foreground" />
+          <p className="text-sm font-medium text-muted-foreground">Under Construction</p>
         </div>
       </div>
     </div>

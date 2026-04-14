@@ -2,7 +2,12 @@ import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { Modal } from "./Modal";
 import { Spinner } from "./Spinner";
-import { updateTransaction, getCategories } from "@/services/transactionService";
+import {
+  updateTransaction,
+  getCategories,
+  filterExpenseCategories,
+  findIncomeCategory,
+} from "@/services/transactionService";
 import { getBudgetsByCategory, applyIncomeToBudgets } from "@/services/budgetService";
 import { events } from "@/lib/events";
 import { formatCurrency } from "@/utils/formatters";
@@ -55,6 +60,27 @@ export function EditTransactionModal({ open, onClose, transaction }) {
       setAllocations({});
     }
   }, [transaction]);
+
+  const expenseCategories = useMemo(
+    () => filterExpenseCategories(categories),
+    [categories],
+  );
+
+  const incomeCategory = useMemo(
+    () => findIncomeCategory(categories),
+    [categories],
+  );
+
+  useEffect(() => {
+    if (form.type === "income" && incomeCategory) {
+      setForm((prev) => ({ ...prev, category: incomeCategory.id }));
+    } else if (form.type === "expense" && expenseCategories.length > 0) {
+      const current = expenseCategories.find((c) => c.id === form.category);
+      if (!current) {
+        setForm((prev) => ({ ...prev, category: expenseCategories[0].id }));
+      }
+    }
+  }, [form.type, incomeCategory, expenseCategories]);
 
   // Fetch budgets for the selected category when type is income
   useEffect(() => {

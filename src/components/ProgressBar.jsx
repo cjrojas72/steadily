@@ -12,18 +12,21 @@ export function ProgressBar({
   color,
   height = "h-3",
   overBudgetClass = "bg-red-500",
+  defaultClass = "bg-primary",
 }) {
-  const percentage = Math.min((value / max) * 100, 100);
+  const percentage = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   const isOver = value > max;
 
   return (
     <div className={cn("w-full bg-muted rounded-full overflow-hidden", height)}>
       <div
-        className={cn("h-full transition-all", isOver && !color && overBudgetClass)}
+        className={cn(
+          "h-full rounded-full transition-all",
+          isOver ? overBudgetClass : (!color && defaultClass),
+        )}
         style={{
           width: `${percentage}%`,
-          ...(color ? { backgroundColor: color } : {}),
-          ...(!color && !isOver ? {} : {}),
+          ...(color && !isOver ? { backgroundColor: color } : {}),
         }}
       />
     </div>

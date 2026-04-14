@@ -1,18 +1,31 @@
 import { apiFetch } from "@/lib/api";
 
 /**
- * Fetch all transactions, optionally filtered.
- * @param {{ search?: string, category?: string }} filters
- * @returns {Promise<Array>}
+ * Fetch transactions with pagination, filtering, and sorting.
+ * @param {object} filters
+ * @returns {Promise<{ items: Array, page: number, perPage: number, total: number }>}
  */
 export async function getTransactions(filters = {}) {
   const params = new URLSearchParams();
   if (filters.search) params.set("search", filters.search);
   if (filters.category && filters.category !== "all") params.set("category_id", filters.category);
+  if (filters.startDate) params.set("start_date", filters.startDate);
+  if (filters.endDate) params.set("end_date", filters.endDate);
+  if (filters.sortBy) params.set("sort_by", filters.sortBy);
+  if (filters.sortOrder) params.set("sort_order", filters.sortOrder);
+  if (filters.page) params.set("page", String(filters.page));
+  if (filters.perPage) params.set("per_page", String(filters.perPage));
 
   const qs = params.toString();
   const data = await apiFetch(`/transactions${qs ? `?${qs}` : ""}`);
-  return data.items || data;
+
+  // Backend returns { page, per_page, total, items }
+  return {
+    items: data.items || data,
+    page: data.page || 1,
+    perPage: data.per_page || 15,
+    total: data.total || (data.items || data).length,
+  };
 }
 
 /**
@@ -82,4 +95,28 @@ export async function getCategories() {
   return Array.isArray(data)
     ? data.map((c) => ({ id: c.id, name: c.name || c.id, color: c.color || "#6b7280" }))
     : [];
+}
+
+/** Name used for the system-level income category. */
+export const INCOME_CATEGORY_NAME = "Income";
+
+/**
+ * Return only expense-eligible categories (excludes the Income category).
+ * @param {Array} categories
+ */
+export function filterExpenseCategories(categories) {
+  return categories.filter(
+    (c) => c.name.toLowerCase() !== INCOME_CATEGORY_NAME.toLowerCase(),
+  );
+}
+
+/**
+ * Find the Income category from a categories list.
+ * @param {Array} categories
+ * @returns {object|undefined}
+ */
+export function findIncomeCategory(categories) {
+  return categories.find(
+    (c) => c.name.toLowerCase() === INCOME_CATEGORY_NAME.toLowerCase(),
+  );
 }

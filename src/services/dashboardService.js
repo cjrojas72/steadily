@@ -58,16 +58,33 @@ export async function getIncomeVsExpenses() {
 
 /**
  * Fetch spending-by-category breakdown for the pie chart.
+ * Filters to the current month and aggregates by category name
+ * so each category appears as a single slice.
  * @returns {Promise<Array>}
  */
 export async function getSpendingByCategory() {
-  const data = await apiFetch("/analytics/monthly-spending");
+  const now = new Date();
+  const data = await apiFetch(
+    `/analytics/monthly-spending?year=${now.getFullYear()}&month=${now.getMonth() + 1}`,
+  );
   const rows = Array.isArray(data) ? data : [];
-  return rows.map((r) => ({
-    name: r.category_name || r.category_id,
-    value: Number(r.total || 0),
-    color: r.color || "#6b7280",
-  }));
+
+  // Aggregate by category name in case of duplicates
+  const map = new Map();
+  for (const r of rows) {
+    const name = r.category_name || r.category_id;
+    const existing = map.get(name);
+    if (existing) {
+      existing.value += Number(r.total || 0);
+    } else {
+      map.set(name, {
+        name,
+        value: Number(r.total || 0),
+        color: r.color || "#6b7280",
+      });
+    }
+  }
+  return Array.from(map.values());
 }
 
 /**

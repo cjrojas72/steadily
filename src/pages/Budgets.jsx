@@ -115,7 +115,7 @@ export function Budgets() {
 
       {/* Overview */}
       <Card>
-        <h3 className="mb-4">Monthly Overview</h3>
+        <h3 className="mb-4">Budget Overview</h3>
         <div className="space-y-4">
           <div>
             <div className="flex justify-between mb-2">

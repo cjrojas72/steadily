@@ -1,6 +1,18 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Download, TrendingUp, CreditCard, Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  Download,
+  TrendingUp,
+  CreditCard,
+  Plus,
+  Pencil,
+  Trash2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useTransactions } from "@/hooks/useTransactions";
 import { deleteTransaction } from "@/services/transactionService";
 import { exportTransactionsCsv } from "@/utils/exportCsv";
@@ -22,6 +34,18 @@ export function Transactions() {
     setSearchTerm,
     filterCategory,
     setFilterCategory,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    sortBy,
+    setSortBy,
+    sortOrder,
+    toggleSortOrder,
+    page,
+    setPage,
+    totalPages,
+    total,
     loading,
   } = useTransactions();
 
@@ -45,6 +69,23 @@ export function Transactions() {
     }
   };
 
+  /** Render the sort icon for a sortable column header */
+  const SortIcon = ({ column }) => {
+    if (sortBy !== column) return <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />;
+    return sortOrder === "asc"
+      ? <ArrowUp className="w-3.5 h-3.5" />
+      : <ArrowDown className="w-3.5 h-3.5" />;
+  };
+
+  /** Click a column header to sort by it, or toggle direction */
+  const handleSort = (column) => {
+    if (sortBy === column) {
+      toggleSortOrder();
+    } else {
+      setSortBy(column);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -63,39 +104,70 @@ export function Transactions() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <SearchInput
-            value={searchTerm}
-            onChange={setSearchTerm}
-            placeholder="Search transactions..."
-          />
-          <div className="flex gap-2">
-            <select
-              value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
-              className="px-4 py-2 bg-input-background border border-border rounded-lg"
-            >
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => {
-                if (transactions.length === 0) {
-                  toast.error("No transactions to export");
-                  return;
-                }
-                exportTransactionsCsv(transactions);
-                toast.success(`Exported ${transactions.length} transaction${transactions.length !== 1 ? "s" : ""}`);
-              }}
-              disabled={transactions.length === 0}
-              className="px-4 py-2 border border-border rounded-lg flex items-center gap-2 hover:bg-accent cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Export</span>
-            </button>
+        <div className="flex flex-col gap-4">
+          {/* Row 1: Search + Category + Export */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            <SearchInput
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Search transactions..."
+            />
+            <div className="flex gap-2">
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="px-4 py-2 bg-input-background border border-border rounded-lg"
+              >
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => {
+                  if (transactions.length === 0) {
+                    toast.error("No transactions to export");
+                    return;
+                  }
+                  exportTransactionsCsv(transactions);
+                  toast.success(`Exported ${transactions.length} transaction${transactions.length !== 1 ? "s" : ""}`);
+                }}
+                disabled={transactions.length === 0}
+                className="px-4 py-2 border border-border rounded-lg flex items-center gap-2 hover:bg-accent cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Export</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2: Date range */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">Date range:</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="px-3 py-2 bg-input-background border border-border rounded-lg text-sm"
+              />
+              <span className="text-muted-foreground">to</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="px-3 py-2 bg-input-background border border-border rounded-lg text-sm"
+              />
+              {(startDate || endDate) && (
+                <button
+                  onClick={() => { setStartDate(""); setEndDate(""); }}
+                  className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground border border-border rounded-lg hover:bg-accent transition-colors cursor-pointer"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </Card>
@@ -105,6 +177,18 @@ export function Transactions() {
         <Spinner />
       ) : (
         <>
+          {/* Result count */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {total} transaction{total !== 1 ? "s" : ""}
+              {total > 0 && (
+                <span>
+                  {" "}&middot; Page {page} of {totalPages}
+                </span>
+              )}
+            </p>
+          </div>
+
           {/* Transactions Table */}
           <div className="bg-card border border-border rounded-lg overflow-hidden shadow">
             {/* Desktop view */}
@@ -112,10 +196,34 @@ export function Transactions() {
               <table className="w-full">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-left px-6 py-3 text-muted-foreground">Date</th>
-                    <th className="text-left px-6 py-3 text-muted-foreground">Description</th>
+                    <th
+                      onClick={() => handleSort("transaction_date")}
+                      className="text-left px-6 py-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        Date
+                        <SortIcon column="transaction_date" />
+                      </span>
+                    </th>
+                    <th
+                      onClick={() => handleSort("description")}
+                      className="text-left px-6 py-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        Description
+                        <SortIcon column="description" />
+                      </span>
+                    </th>
                     <th className="text-left px-6 py-3 text-muted-foreground">Category</th>
-                    <th className="text-right px-6 py-3 text-muted-foreground">Amount</th>
+                    <th
+                      onClick={() => handleSort("amount")}
+                      className="text-right px-6 py-3 text-muted-foreground cursor-pointer hover:text-foreground transition-colors select-none"
+                    >
+                      <span className="flex items-center justify-end gap-1.5">
+                        Amount
+                        <SortIcon column="amount" />
+                      </span>
+                    </th>
                     <th className="px-6 py-3 text-muted-foreground w-24"></th>
                   </tr>
                 </thead>
@@ -182,6 +290,31 @@ export function Transactions() {
 
             {/* Mobile view */}
             <div className="md:hidden divide-y divide-border">
+              {/* Mobile sort control */}
+              <div className="p-3 bg-muted/50 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Sort by:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="text-xs px-2 py-1 bg-input-background border border-border rounded-lg"
+                >
+                  <option value="transaction_date">Date</option>
+                  <option value="amount">Amount</option>
+                  <option value="description">Description</option>
+                </select>
+                <button
+                  onClick={toggleSortOrder}
+                  className="p-1 rounded border border-border hover:bg-accent transition-colors cursor-pointer"
+                  title={sortOrder === "asc" ? "Ascending" : "Descending"}
+                >
+                  {sortOrder === "asc" ? (
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  ) : (
+                    <ArrowDown className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+
               {transactions.map((t) => (
                 <div key={t.id} className="p-4 hover:bg-accent/50">
                   <div className="flex items-center justify-between mb-2">
@@ -232,10 +365,67 @@ export function Transactions() {
             </div>
           </div>
 
+          {/* Empty state */}
           {transactions.length === 0 && (
             <Card className="p-12 text-center">
               <p className="text-muted-foreground">No transactions found</p>
             </Card>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page <= 1}
+                className="p-2 rounded-lg border border-border hover:bg-accent transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {/* Page numbers */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => {
+                  // Show first, last, and pages near the current page
+                  if (p === 1 || p === totalPages) return true;
+                  return Math.abs(p - page) <= 1;
+                })
+                .reduce((acc, p, i, arr) => {
+                  // Insert ellipsis between non-consecutive pages
+                  if (i > 0 && p - arr[i - 1] > 1) {
+                    acc.push("ellipsis-" + p);
+                  }
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p) =>
+                  typeof p === "string" ? (
+                    <span key={p} className="px-1 text-muted-foreground">
+                      &hellip;
+                    </span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`w-9 h-9 rounded-lg text-sm transition-colors cursor-pointer ${
+                        p === page
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-border hover:bg-accent"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ),
+                )}
+
+              <button
+                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                disabled={page >= totalPages}
+                className="p-2 rounded-lg border border-border hover:bg-accent transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           )}
         </>
       )}

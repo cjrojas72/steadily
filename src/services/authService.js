@@ -1,4 +1,39 @@
-import { apiFetch } from "@/lib/api";
+import { apiFetch, API_BASE_URL } from "@/lib/api";
+
+async function ensureIncomeCategory(token) {
+  const categoriesRes = await fetch(`${API_BASE_URL}/categories`, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!categoriesRes.ok) {
+    return;
+  }
+
+  const categoriesBody = await categoriesRes.json();
+  const categories = categoriesBody.data ?? categoriesBody;
+  const hasIncome = Array.isArray(categories)
+    ? categories.some((cat) => cat.name?.toLowerCase() === "income")
+    : false;
+
+  if (!hasIncome) {
+    await fetch(`${API_BASE_URL}/categories`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        name: "Income",
+        color: "#1D9E75",
+        icon: "trending-up",
+        is_default: true,
+      }),
+    });
+  }
+}
 
 /**
  * Log in with email + password.
@@ -32,6 +67,11 @@ export async function signup(data) {
       display_name: `${data.firstName} ${data.lastName}`.trim(),
     }),
   });
+
+  if (result.access_token) {
+    await ensureIncomeCategory(result.access_token);
+  }
+
   return {
     token: result.access_token,
     refreshToken: result.refresh_token,

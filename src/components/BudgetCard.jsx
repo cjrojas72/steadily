@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle, Trash2, Calendar } from "lucide-react";
 import { Card } from "./Card";
 import { ProgressBar } from "./ProgressBar";
 import { formatCurrency, formatPercentage } from "@/utils/formatters";
@@ -17,7 +17,18 @@ export function BudgetCard({ budget, onDelete }) {
     <Card>
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h4>{budget.title || budget.category}</h4>
+          <div className="flex items-center gap-2">
+            <h4>{budget.title || budget.category}</h4>
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+              {budget.periodLabel || budget.period}
+            </span>
+          </div>
+          {budget.periodRange && (
+            <div className="flex items-center gap-1 mt-1">
+              <Calendar className="w-3 h-3 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">{budget.periodRange}</p>
+            </div>
+          )}
           {budget.description && (
             <p className="text-xs text-muted-foreground mt-0.5">{budget.description}</p>
           )}
